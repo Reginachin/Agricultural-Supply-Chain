@@ -7,6 +7,7 @@
 (define-constant ERROR-PRODUCT-NOT-FOUND (err u2))
 (define-constant ERROR-INVALID-STATUS-UPDATE (err u3))
 (define-constant ERROR-DUPLICATE-ENTRY (err u4))
+(define-constant ERROR-INVALID-INPUT (err u5))
 
 ;; Data Variables
 (define-data-var minimum-quality-threshold uint u60)
@@ -79,11 +80,33 @@
     )
 )
 
+;; Input validation functions
+(define-private (is-valid-ascii-20 (input (string-ascii 20)))
+    (and (>= (len input) u1) (<= (len input) u20))
+)
+
+(define-private (is-valid-ascii-50 (input (string-ascii 50)))
+    (and (>= (len input) u1) (<= (len input) u50))
+)
+
+(define-private (is-valid-ascii-100 (input (string-ascii 100)))
+    (and (>= (len input) u1) (<= (len input) u100))
+)
+
+(define-private (is-valid-ascii-200 (input (string-ascii 200)))
+    (and (>= (len input) u1) (<= (len input) u200))
+)
+
+(define-private (is-valid-uint (input uint))
+    (< input u340282366920938463463374607431768211455)  ;; Max uint value
+)
+
 ;; Administrative Functions
 (define-public (register-supply-chain-participant (participant-principal principal) (participant-role (string-ascii 20)))
     (begin
         (asserts! (is-eq tx-sender contract-administrator) ERROR-UNAUTHORIZED-ACCESS)
         (asserts! (is-none (map-get? supply-chain-participants participant-principal)) ERROR-DUPLICATE-ENTRY)
+        (asserts! (is-valid-ascii-20 participant-role) ERROR-INVALID-INPUT)
         (ok (map-set supply-chain-participants 
             participant-principal
             {
@@ -117,6 +140,10 @@
         (begin
             (asserts! (is-participant-authorized requesting-participant) ERROR-UNAUTHORIZED-ACCESS)
             (asserts! (is-none (map-get? agricultural-products product-identifier)) ERROR-DUPLICATE-ENTRY)
+            (asserts! (is-valid-uint product-identifier) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-50 product-name) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-100 product-location) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-uint product-price) ERROR-INVALID-INPUT)
             (ok (map-set agricultural-products
                 product-identifier
                 {
@@ -146,6 +173,9 @@
         (begin
             (asserts! (is-participant-authorized requesting-participant) ERROR-UNAUTHORIZED-ACCESS)
             (asserts! (is-eq (get current-custodian product-info) requesting-participant) ERROR-UNAUTHORIZED-ACCESS)
+            (asserts! (is-valid-uint product-identifier) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-20 updated-status) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-200 status-notes) ERROR-INVALID-INPUT)
             (map-set agricultural-products
                 product-identifier
                 (merge product-info {product-status: updated-status})
@@ -177,6 +207,8 @@
             (asserts! (is-participant-authorized current-custodian) ERROR-UNAUTHORIZED-ACCESS)
             (asserts! (is-participant-authorized new-custodian) ERROR-UNAUTHORIZED-ACCESS)
             (asserts! (is-eq (get current-custodian product-info) current-custodian) ERROR-UNAUTHORIZED-ACCESS)
+            (asserts! (is-valid-uint product-identifier) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-200 transfer-notes) ERROR-INVALID-INPUT)
             (map-set agricultural-products
                 product-identifier
                 (merge product-info {
@@ -209,7 +241,9 @@
         )
         (begin
             (asserts! (is-participant-authorized quality-assessor) ERROR-UNAUTHORIZED-ACCESS)
-            (asserts! (<= updated-quality-score u100) ERROR-PRODUCT-NOT-FOUND)
+            (asserts! (is-valid-uint product-identifier) ERROR-INVALID-INPUT)
+            (asserts! (<= updated-quality-score u100) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-200 quality-notes) ERROR-INVALID-INPUT)
             (map-set agricultural-products
                 product-identifier
                 (merge product-info {
@@ -243,6 +277,9 @@
         (begin
             (asserts! (is-participant-authorized requesting-participant) ERROR-UNAUTHORIZED-ACCESS)
             (asserts! (is-eq (get current-custodian product-info) requesting-participant) ERROR-UNAUTHORIZED-ACCESS)
+            (asserts! (is-valid-uint product-identifier) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-100 updated-location) ERROR-INVALID-INPUT)
+            (asserts! (is-valid-ascii-200 location-notes) ERROR-INVALID-INPUT)
             (map-set agricultural-products
                 product-identifier
                 (merge product-info {current-location: updated-location})
